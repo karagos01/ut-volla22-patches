@@ -1,0 +1,7 @@
+#%PAM-1.0
+auth    requisite       pam_nologin.so
+auth    [success=1 default=ignore]  pam_unix.so nullok try_first_pass nodelay
+auth    requisite       pam_deny.so
+auth    required        pam_permit.so
+account required        pam_permit.so
+session required        pam_permit.so
