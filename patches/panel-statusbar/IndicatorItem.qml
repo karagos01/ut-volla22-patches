@@ -100,8 +100,71 @@ IndicatorDelegate {
     }
 
     Item {
+        id: batteryIndicator
+        visible: root.identifier.indexOf("power") !== -1 && !root.expanded && !root.quickTileMode
+        width: units.gu(2.5)
+        height: units.gu(1.2)
+        anchors.centerIn: parent
+
+        property real batteryLevel: {
+            // Try rightLabel first
+            var pct = parseInt(root.rightLabel);
+            if (!isNaN(pct) && pct >= 0 && pct <= 100) return pct;
+            // Parse from icon name (e.g. "battery-070-panel" -> 70)
+            if (root.icons && root.icons.length > 0) {
+                var match = root.icons[0].match(/battery-(\d{3})/);
+                if (match) return parseInt(match[1]);
+            }
+            return 50;
+        }
+
+        Rectangle {
+            id: batteryBody
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width - units.dp(3)
+            height: parent.height
+            radius: units.dp(2)
+            color: "transparent"
+            border.color: theme.palette.normal.backgroundText
+            border.width: units.dp(1)
+
+            Rectangle {
+                id: batteryFill
+                anchors.left: parent.left
+                anchors.leftMargin: units.dp(1.5)
+                anchors.verticalCenter: parent.verticalCenter
+                height: parent.height - units.dp(3)
+                width: Math.max(0, (parent.width - units.dp(3)) * batteryIndicator.batteryLevel / 100)
+                radius: units.dp(1)
+                color: batteryIndicator.batteryLevel > 20 ? "#4CAF50" :
+                       batteryIndicator.batteryLevel > 10 ? "#FF9800" : "#F44336"
+            }
+
+            Label {
+                anchors.centerIn: parent
+                text: batteryIndicator.batteryLevel + "%"
+                fontSize: "xx-small"
+                font.weight: Font.DemiBold
+                color: theme.palette.normal.backgroundText
+            }
+        }
+
+        Rectangle {
+            id: batteryNub
+            anchors.left: batteryBody.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: units.dp(3)
+            height: units.dp(4)
+            radius: units.dp(1)
+            color: theme.palette.normal.backgroundText
+        }
+    }
+
+    Item {
         id: mainItems
         anchors.centerIn: quickTileMode ? tileCircle : parent
+        visible: !(root.identifier.indexOf("power") !== -1 && !root.expanded && !root.quickTileMode)
 
         width: quickTileMode ? tileCircle.width : (leftLabelItem.width + iconsItem.width + rightLabelItem.width)
         implicitHeight: units.gu(2)
@@ -230,7 +293,7 @@ IndicatorDelegate {
 
             State {
                 name: "minimised_fallback_hidden"
-                when: !quickTileMode && !expanded && (!icons || icons.length === 0) && leftLabel == "" && rightLabel == "" && (root.identifier === "ayatana-indicator-network" || root.identifier === "ayatana-indicator-transfer")
+                when: !quickTileMode && !expanded && (!icons || icons.length === 0) && leftLabel == "" && rightLabel == "" && (root.identifier === "ayatana-indicator-network" || root.identifier === "ayatana-indicator-transfer" || root.identifier === "ayatana-indicator-messages")
                 PropertyChanges { target: indicatorName; opacity: 0 }
                 PropertyChanges { target: d; useFallbackIcon: true; hideMinimisedFallback: false }
             },
@@ -339,7 +402,7 @@ IndicatorDelegate {
         id: d
 
         property bool useFallbackIcon: false
-        property bool hideMinimisedFallback: false
+        property bool hideMinimisedFallback: root.identifier.indexOf("network") !== -1 || root.identifier.indexOf("messages") !== -1
         property var shouldIndicatorBeShown: undefined
 
         function fallbackIconForIdentifier(ident) {

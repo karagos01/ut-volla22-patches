@@ -447,7 +447,7 @@ Item {
                               root.height)
 
             showQuickTiles: root.phoneLayout
-            clockText: root.phoneLayout ? Qt.formatTime(root.panelClockDate) : ""
+            clockText: root.phoneLayout ? Qt.formatTime(root.panelClockDate, "HH:mm") : ""
             hasKeyboard: root.hasKeyboard
             quickTileHeight: units.gu(13)
             barContentRightInset: root.phoneLayout ? units.gu(2) : 0
@@ -474,7 +474,7 @@ Item {
                 readonly property bool hideSessionIndicator: identifier == "ayatana-indicator-session" && Math.min(Screen.width, Screen.height) <= units.gu(60)
                 // HACK for indicator-keyboard
                 readonly property bool hideKeyboardIndicator: identifier == "ayatana-indicator-keyboard" && !hasKeyboard
-readonly property bool hideDatetimeIndicator: !expanded && root.phoneLayout && identifier.indexOf("datetime") !== -1
+                readonly property bool hideDatetimeIndicator: !expanded && root.phoneLayout && identifier.indexOf("datetime") !== -1
 
                 height: parent.height
                 expanded: indicators.expanded
