@@ -10,6 +10,7 @@ public:
     Q_INVOKABLE void wakeScreen();
     Q_INVOKABLE void setBrightness(int value);
     Q_INVOKABLE void setAutoBrightness(bool enabled);
+    Q_INVOKABLE bool getAutoBrightness();
     Q_INVOKABLE int getBrightness();
     Q_INVOKABLE void setVolume(int percent);
     Q_INVOKABLE void setMute(bool muted);

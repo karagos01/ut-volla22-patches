@@ -21,9 +21,17 @@ void FpWake::setBrightness(int value) {
 }
 
 void FpWake::setAutoBrightness(bool enabled) {
+    QProcess::startDetached("dconf", {"write", "/com/lomiri/touch/system/auto-brightness", enabled ? "true" : "false"});
     QDBusInterface iface("com.canonical.Unity.Screen", "/com/canonical/Unity/Screen",
                          "com.canonical.Unity.Screen", QDBusConnection::systemBus());
     if (iface.isValid()) iface.call("userAutobrightnessEnable", enabled);
+}
+
+bool FpWake::getAutoBrightness() {
+    QProcess p;
+    p.start("dconf", {"read", "/com/lomiri/touch/system/auto-brightness"});
+    p.waitForFinished(1000);
+    return p.readAllStandardOutput().trimmed() == "true";
 }
 
 int FpWake::getBrightness() {

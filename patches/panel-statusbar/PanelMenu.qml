@@ -386,6 +386,7 @@ Showable {
                     wifiName = FpWake.wifiSsid();
                     root.flashlightOn = FpWake.getFlashlight();
                     root.rotationLocked = FpWake.getRotationLock();
+                    autoBrightnessBtn.autoBrightnessEnabled = FpWake.getAutoBrightness();
                 }
             }
 
