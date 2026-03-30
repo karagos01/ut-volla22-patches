@@ -51,6 +51,8 @@ Showable {
 
     // Quick tiles properties for Android-like indicator panel
     property bool showQuickTiles: false
+    property bool flashlightOn: false
+    property bool rotationLocked: false
     property real quickTileHeight: units.gu(12)
     property bool hasKeyboard: false
     property string clockText: ""
@@ -125,9 +127,9 @@ Showable {
             if (ident === "ayatana-indicator-datetime") return false;
             if (ident === "ayatana-indicator-session") return false;
             if (ident === "ayatana-indicator-keyboard" && !root.hasKeyboard) return false;
-            // WiFi and BT are in the pills row, not in quick tiles
             if (root.showQuickTiles && ident && ident.indexOf("network") !== -1) return false;
             if (root.showQuickTiles && ident && ident.indexOf("bluetooth") !== -1) return false;
+            if (root.showQuickTiles && ident && ident.indexOf("messages") !== -1) return false;
             return true;
         }
 
@@ -200,12 +202,12 @@ Showable {
 
         // eater
         MouseArea {
-            anchors.fill: content
+            anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.AllButtons
             onWheel: wheel.accepted = true;
             enabled: root.state != "initial"
-            visible: content.visible
+            visible: root.unitProgress > 0
         }
 
         Icon {
@@ -235,12 +237,12 @@ Showable {
             anchors {
                 left: parent.left
                 right: parent.right
-                top: parent.top
-                topMargin: units.gu(1.5)
+                top: quickTiles.bottom
+                topMargin: units.gu(0.5)
                 leftMargin: units.gu(2)
                 rightMargin: units.gu(2)
             }
-            height: quickTilesVisible ? units.gu(3) : 0
+            height: quickTilesVisible ? units.gu(6) : 0
             visible: quickTilesVisible
 
             Icon {
@@ -256,13 +258,44 @@ Showable {
                 color: theme.palette.normal.backgroundText
             }
 
+            Rectangle {
+                id: autoBrightnessBtn
+                anchors {
+                    right: parent.right
+                    rightMargin: units.gu(2)
+                    verticalCenter: parent.verticalCenter
+                }
+                width: units.gu(5)
+                height: units.gu(5)
+                radius: width / 2
+                color: autoBrightnessEnabled ? theme.palette.normal.activity : Qt.rgba(theme.palette.normal.backgroundText.r, theme.palette.normal.backgroundText.g, theme.palette.normal.backgroundText.b, 0.12)
+
+                property bool autoBrightnessEnabled: false
+
+                Label {
+                    anchors.centerIn: parent
+                    text: "Auto"
+                    fontSize: "small"
+                    font.weight: Font.Medium
+                    color: autoBrightnessBtn.autoBrightnessEnabled ? "#FFFFFF" : theme.palette.normal.backgroundText
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        autoBrightnessBtn.autoBrightnessEnabled = !autoBrightnessBtn.autoBrightnessEnabled;
+                        FpWake.setAutoBrightness(autoBrightnessBtn.autoBrightnessEnabled);
+                    }
+                }
+            }
+
             QQC2.Slider {
                 id: brightnessSlider
                 anchors {
                     left: brightnessIcon.right
                     leftMargin: units.gu(1)
-                    right: parent.right
-                    rightMargin: units.gu(2)
+                    right: autoBrightnessBtn.left
+                    rightMargin: units.gu(1)
                     verticalCenter: parent.verticalCenter
                 }
                 from: 10
@@ -270,10 +303,6 @@ Showable {
                 value: 128
                 stepSize: 1
 
-                Component.onCompleted: {
-                    // Read initial brightness
-                    brightnessTimer.triggered()
-                }
 
                 onValueChanged: {
                     if (pressed) {
@@ -281,8 +310,25 @@ Showable {
                     }
                 }
                 onPressedChanged: {
+                    if (pressed && autoBrightnessBtn.autoBrightnessEnabled) {
+                        autoBrightnessBtn.autoBrightnessEnabled = false;
+                        FpWake.setAutoBrightness(false);
+                    }
                     if (!pressed) {
                         FpWake.setBrightness(Math.round(value))
+                    }
+                }
+
+                Timer {
+                    id: brightnessReadTimer
+                    interval: 1000
+                    repeat: true
+                    running: autoBrightnessBtn.autoBrightnessEnabled && quickTilesVisible
+                    onTriggered: {
+                        var val = FpWake.getBrightness();
+                        if (val > 0 && !brightnessSlider.pressed) {
+                            brightnessSlider.value = val;
+                        }
                     }
                 }
 
@@ -319,15 +365,16 @@ Showable {
             }
         }
 
+
         Row {
             id: wifiBluetoothRow
             anchors {
                 horizontalCenter: parent.horizontalCenter
-                top: brightnessRow.bottom
-                topMargin: units.gu(1)
+                top: parent.top
+                topMargin: units.gu(1.5)
             }
             width: parent.width - units.gu(4)
-            height: quickTilesVisible ? units.gu(5) : 0
+            height: quickTilesVisible ? units.gu(6.5) : 0
             visible: quickTilesVisible
             spacing: units.gu(1)
 
@@ -337,16 +384,25 @@ Showable {
             onVisibleChanged: {
                 if (visible) {
                     wifiName = FpWake.wifiSsid();
-                    btName = FpWake.btDevice();
+                    root.flashlightOn = FpWake.getFlashlight();
+                    root.rotationLocked = FpWake.getRotationLock();
                 }
             }
+
+            Timer {
+                id: panelRefreshTimer
+                interval: 300
+                onTriggered: {
+                }
+            }
+
 
 
             // Wi-Fi pill
             Rectangle {
                 id: wifiPill
                 width: (parent.width - parent.spacing) / 2
-                height: units.gu(4.5)
+                height: units.gu(5.5)
                 radius: height / 2
                 color: wifiBluetoothRow.wifiName !== ""
                     ? Qt.rgba(theme.palette.normal.activity.r, theme.palette.normal.activity.g, theme.palette.normal.activity.b, 0.25)
@@ -359,16 +415,16 @@ Showable {
                     spacing: units.gu(1)
 
                     Rectangle {
-                        width: units.gu(3.5)
-                        height: units.gu(3.5)
+                        width: units.gu(4.5)
+                        height: units.gu(4.5)
                         radius: width / 2
                         anchors.verticalCenter: parent.verticalCenter
                         color: wifiBluetoothRow.wifiName !== "" ? theme.palette.normal.activity : Qt.rgba(theme.palette.normal.backgroundText.r, theme.palette.normal.backgroundText.g, theme.palette.normal.backgroundText.b, 0.3)
 
                         Icon {
                             anchors.centerIn: parent
-                            width: units.gu(2)
-                            height: units.gu(2)
+                            width: units.gu(2.5)
+                            height: units.gu(2.5)
                             name: "network-wifi-symbolic"
                             color: "#FFFFFF"
                         }
@@ -385,13 +441,13 @@ Showable {
                         fontSize: "small"
                         color: theme.palette.normal.backgroundText
                         elide: Text.ElideRight
-                        width: parent.width - units.gu(5.5)
+                        width: parent.width - units.gu(6)
                     }
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    anchors.leftMargin: units.gu(4.5)
+                    anchors.leftMargin: units.gu(5.5)
                     onClicked: {
                         wifiPopup.networks = FpWake.wifiNetworks();
                         wifiPopup.visible = true;
@@ -403,7 +459,7 @@ Showable {
             Rectangle {
                 id: btPill
                 width: wifiPill.width
-                height: units.gu(4.5)
+                height: units.gu(5.5)
                 radius: height / 2
                 color: wifiBluetoothRow.btName !== ""
                     ? Qt.rgba(theme.palette.normal.activity.r, theme.palette.normal.activity.g, theme.palette.normal.activity.b, 0.25)
@@ -416,16 +472,16 @@ Showable {
                     spacing: units.gu(1)
 
                     Rectangle {
-                        width: units.gu(3.5)
-                        height: units.gu(3.5)
+                        width: units.gu(4.5)
+                        height: units.gu(4.5)
                         radius: width / 2
                         anchors.verticalCenter: parent.verticalCenter
                         color: wifiBluetoothRow.btName !== "" ? theme.palette.normal.activity : Qt.rgba(theme.palette.normal.backgroundText.r, theme.palette.normal.backgroundText.g, theme.palette.normal.backgroundText.b, 0.3)
 
                         Icon {
                             anchors.centerIn: parent
-                            width: units.gu(2)
-                            height: units.gu(2)
+                            width: units.gu(2.5)
+                            height: units.gu(2.5)
                             name: "bluetooth-active"
                             color: "#FFFFFF"
                         }
@@ -442,13 +498,13 @@ Showable {
                         fontSize: "small"
                         color: theme.palette.normal.backgroundText
                         elide: Text.ElideRight
-                        width: parent.width - units.gu(5.5)
+                        width: parent.width - units.gu(6)
                     }
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    anchors.leftMargin: units.gu(4.5)
+                    anchors.leftMargin: units.gu(5.5)
                     onClicked: {
                         var idx = quickTilesModel.findIndicator("bluetooth");
                         if (idx >= 0) {
@@ -616,11 +672,52 @@ Showable {
         }
 
         Rectangle {
+            id: notificationZone
+            anchors {
+                left: parent.left
+                right: parent.right
+                top: quickTilesVisible ? brightnessRow.bottom : parent.top
+                topMargin: units.gu(0.5)
+                leftMargin: units.gu(2)
+                rightMargin: units.gu(2)
+            }
+            height: quickTilesVisible ? Math.max(notifColumn.height + units.gu(2), units.gu(6)) : 0
+            visible: quickTilesVisible
+            radius: units.gu(1.5)
+            color: Qt.rgba(theme.palette.normal.backgroundText.r, theme.palette.normal.backgroundText.g, theme.palette.normal.backgroundText.b, 0.06)
+
+            Column {
+                id: notifColumn
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    top: parent.top
+                    margins: units.gu(1)
+                }
+                spacing: units.gu(0.5)
+
+                Label {
+                    text: "Žádné notifikace"
+                    fontSize: "small"
+                    color: Qt.rgba(theme.palette.normal.backgroundText.r, theme.palette.normal.backgroundText.g, theme.palette.normal.backgroundText.b, 0.4)
+                    visible: notifList.count === 0
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+
+                Repeater {
+                    id: notifList
+                    model: 0
+                    delegate: Item { height: units.gu(4); width: parent.width }
+                }
+            }
+        }
+
+        Rectangle {
             id: contentBackground
             anchors {
                 left: parent.left
                 right: parent.right
-                top: quickTilesVisible ? quickTiles.bottom : parent.top
+                top: quickTilesVisible ? notificationZone.bottom : parent.top
                 leftMargin: units.gu(1)
                 rightMargin: units.gu(1)
             }
@@ -906,6 +1003,8 @@ Showable {
                         item.quickTileMode = true;
                         item.expanded = true;
                         item.identifier = tileIdentifier;
+                        if (tileIdentifier.indexOf("power") !== -1) item.tileActiveOverride = Qt.binding(function() { return root.flashlightOn; });
+                        if (tileIdentifier.indexOf("display") !== -1) item.tileActiveOverride = Qt.binding(function() { return root.rotationLocked; });
                         if (tileIndicatorProperties) {
                             item.busName = tileIndicatorProperties.busName;
                             item.actionsObjectPath = tileIndicatorProperties.actionsObjectPath;

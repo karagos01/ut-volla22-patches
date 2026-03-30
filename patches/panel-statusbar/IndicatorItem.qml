@@ -19,6 +19,7 @@ import QtQml 2.15
 import Lomiri.Components 1.3
 import Lomiri.Settings.Components 0.1
 import QMenuModel 1.0
+import FpWake 0.1
 
 IndicatorDelegate {
     id: root
@@ -32,12 +33,26 @@ IndicatorDelegate {
     property bool selected: false
     property bool quickTileMode: false
     property real forcedQuickTileWidth: 0
+    property var tileActiveOverride: undefined
     property real iconHeight: quickTileMode ? units.gu(2.5) : units.gu(2)
 
     readonly property real quickTileWidth: units.gu(9.4)
 
+    readonly property bool tileActive: {
+        if (identifier.indexOf("sound") !== -1) {
+            if (icons && icons.length > 0 && typeof icons[0] === "string") return icons[0].indexOf("muted") === -1;
+            return true;
+        }
+        if (identifier.indexOf("display") !== -1) return tileActiveOverride !== undefined ? tileActiveOverride : false;
+        if (identifier.indexOf("power") !== -1) return tileActiveOverride !== undefined ? tileActiveOverride : false;
+        if (identifier.indexOf("location") !== -1) {
+            if (icons && icons.length > 0 && typeof icons[0] === "string") return icons[0].indexOf("disabled") === -1;
+            return false;
+        }
+        return icons !== undefined && icons.length > 0;
+    }
     readonly property color quickTileIconColor: {
-        if (quickTileMode && selected) return "#FFFFFF";
+        if (quickTileMode && tileActive) return "#FFFFFF";
         if (quickTileMode) return theme.palette.normal.backgroundText;
         return root.color;
     }
@@ -52,7 +67,26 @@ IndicatorDelegate {
 
     clip: quickTileMode
 
+
     function activateQuickTile() {
+        if (identifier.indexOf("display") !== -1) {
+            FpWake.setRotationLock(!tileActive);
+            tileActiveOverride = !tileActive;
+            return;
+        }
+        if (identifier.indexOf("power") !== -1) {
+            FpWake.toggleFlashlight();
+            tileActiveOverride = !tileActive;
+            return;
+        }
+        if (identifier.indexOf("location") !== -1) {
+            FpWake.toggleLocation();
+            return;
+        }
+        if (identifier.indexOf("sound") !== -1) {
+            FpWake.setMute(false);
+            return;
+        }
         if (secondaryAction.valid) {
             secondaryAction.activate();
         }
@@ -91,7 +125,7 @@ IndicatorDelegate {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: units.gu(0.5)
-        color: root.selected ? theme.palette.normal.activity : Qt.rgba(theme.palette.normal.backgroundText.r,
+        color: root.tileActive ? theme.palette.normal.activity : Qt.rgba(theme.palette.normal.backgroundText.r,
                                                                         theme.palette.normal.backgroundText.g,
                                                                         theme.palette.normal.backgroundText.b,
                                                                         0.15)
@@ -209,7 +243,7 @@ IndicatorDelegate {
                     id: iconRepeater
                     objectName: "iconRepeater"
 
-                    model: d.useFallbackIcon ? [ d.fallbackIconForIdentifier(root.identifier) ] : (d.hideMinimisedFallback ? [] : root.icons)
+                    model: d.useFallbackIcon ? [ d.fallbackIconForIdentifier(root.identifier) ] : d.quickTileIconOverride !== "" ? [ d.quickTileIconOverride ] : (d.hideMinimisedFallback ? [] : root.icons)
 
                     Icon {
                         id: itemImage
@@ -402,7 +436,15 @@ IndicatorDelegate {
         id: d
 
         property bool useFallbackIcon: false
-        property bool hideMinimisedFallback: root.identifier.indexOf("network") !== -1 || root.identifier.indexOf("messages") !== -1
+        property bool hideMinimisedFallback: root.identifier.indexOf("network") !== -1
+        property bool rotationLocked: false
+        property bool flashlightOn: false
+        property string quickTileIconOverride: {
+            if (!root.quickTileMode) return "";
+            if (root.identifier.indexOf("power") !== -1) return root.tileActive ? "image://theme/torch-on" : "image://theme/torch-off";
+            if (root.identifier.indexOf("display") !== -1) return root.tileActive ? "image://theme/orientation-lock" : "image://theme/view-rotate";
+            return "";
+        }
         property var shouldIndicatorBeShown: undefined
 
         function fallbackIconForIdentifier(ident) {
@@ -410,7 +452,7 @@ IndicatorDelegate {
             if (ident === "ayatana-indicator-network") return "image://theme/nm-signal-100";
             if (ident === "ayatana-indicator-transfer") return "image://theme/transfer-progress";
             if (ident === "ayatana-indicator-bluetooth") return "image://theme/bluetooth-active";
-            if (ident === "ayatana-indicator-power") return "image://theme/battery-full-charged";
+            if (ident === "ayatana-indicator-power") return root.quickTileMode ? "image://theme/torch-on" : "image://theme/battery-full-charged";
             if (ident === "ayatana-indicator-sound") return "image://theme/audio-volume-medium";
             if (ident === "ayatana-indicator-location") return "image://theme/location";
             if (ident === "ayatana-indicator-rotation-lock") return "image://theme/orientation-lock";
