@@ -469,12 +469,13 @@ Item {
 
                 property int ownIndex: index
                 readonly property bool overflow: parent.width - (x - __indicators.rowContentX) > __indicators.overFlowWidth
-                readonly property bool hidden: !expanded && (overflow || !indicatorVisible || hideSessionIndicator || hideKeyboardIndicator || hideDatetimeIndicator)
+                readonly property bool hidden: !expanded && (overflow || !indicatorVisible || hideSessionIndicator || hideKeyboardIndicator || hideDatetimeIndicator || hideMessagesIndicator)
                 // HACK for indicator-session
                 readonly property bool hideSessionIndicator: identifier == "ayatana-indicator-session" && Math.min(Screen.width, Screen.height) <= units.gu(60)
                 // HACK for indicator-keyboard
                 readonly property bool hideKeyboardIndicator: identifier == "ayatana-indicator-keyboard" && !hasKeyboard
                 readonly property bool hideDatetimeIndicator: !expanded && root.phoneLayout && identifier.indexOf("datetime") !== -1
+                readonly property bool hideMessagesIndicator: !expanded && root.phoneLayout && identifier.indexOf("messages") !== -1 && indicatorItem.icons && indicatorItem.icons.length > 0 && String(indicatorItem.icons[0]).indexOf("offline") !== -1
 
                 height: parent.height
                 expanded: indicators.expanded
@@ -488,7 +489,7 @@ Item {
                 opacity: hidden ? 0.0 : 1.0
                 Behavior on opacity { LomiriNumberAnimation { duration: LomiriAnimation.SnapDuration } }
 
-                width: ((expanded || indicatorVisible) && !hideSessionIndicator && !hideKeyboardIndicator && !hideDatetimeIndicator) ? implicitWidth : 0
+                width: ((expanded || indicatorVisible) && !hideSessionIndicator && !hideKeyboardIndicator && !hideDatetimeIndicator && !hideMessagesIndicator) ? implicitWidth : 0
 
                 Behavior on width { LomiriNumberAnimation { duration: LomiriAnimation.SnapDuration } }
             }
