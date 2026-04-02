@@ -1,0 +1,14 @@
+[Unit]
+Description=Initialize MT6768 WiFi chip via wmtWifi
+After=network-pre.target
+Before=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "i=0; while [ ! -e /dev/wmtWifi ] && [ $i -lt 30 ]; do sleep 1; i=$((i+1)); done; sleep 5; echo 1 > /dev/wmtWifi; i=0; while [ ! -e /sys/class/net/wlan0 ] && [ $i -lt 120 ]; do sleep 2; i=$((i+1)); done"
+RemainAfterExit=yes
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
